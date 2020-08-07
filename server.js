@@ -68,9 +68,125 @@ app.post("/customers", function (req,res) {
       });
 });
 
-app.post
+app.post("/products", function (req, res) {
+    const { product_name, unit_price, supplier_id} = req.body;
+    if (!Number.isInteger(unit_price) || unit_price <= 0) {
+        return res.status(400).send("The price should be an Integer and greater than 0");
+    }
+pool
+    .query('SELECT * FROM suppliers WHERE suppliers.id=$1', [supplier_id])
+    .then((result) => {
+        if (result.rows.length > 0) {
+            pool
+            .query('INSERT INTO products (product_name, unit_price, supplier_id) VALUES ($1,$2,$3)', [product_name, unit_price, supplier_id])
+            .then(result => res.status(201).send("Product Created :) ..!"))
+            .catch(error => {
+                console.log(error)
+                res.status(500).send("something went wrong :(..");
+            })      
+        } else {
+            return res.status(400).send("The Id Supplier does not exist! :( ..") 
+
+    }});
+});
+
+app.post("/customers/:customerId/orders", function (req,res) {
+    const {order_date, order_reference} = req.body;
+    const customerId = req.params.customerId;
+    pool
+    .query('SELECT * FROM customers WHERE customers.id=$1', [customerId])
+    .then((result) => {
+        if (result.rows.length > 0) {
+            pool
+            .query("INSERT INTO orders (order_date, order_reference, customer_id) VALUES ($1,$2,$3)", [order_date, order_reference, customerId])
+            .then(result => res.status(201).send("Order Created :) ..!"))
+            .catch(error => {
+                console.log(error)
+                res.status(500).send("something went wrong :(..");
+            })    
+        } else {
+            return res.status(400).send("The Id customer does not exist! :( ..") 
+
+        }});
+    
+});
+
+app.put("/customers/:customerId", function (req,res) {
+    const {newName, newAddress, newCity, newCountry} = req.body;
+    const customerId = req.params.customerId;
+    pool
+    .query("UPDATE customers SET name=$1, address=$2, city=$3, country=$4 WHERE id=$5", [newName, newAddress, newCity, newCountry, customerId])
+    .then(() => res.send(`Customer ${customerId} Update!`))
+    .catch((e) => console.error(e));
+});
+
+//DELETE FROM ID
+app.delete("/orders/:orderId", function (req,res) {
+    const orderId = req.params.orderId;
+    let query = 'DELETE FROM order_items WHERE order_id=$1';
+    pool
+    .query(query, [orderId])
+    .then(() => {
+        pool
+        .query('DELETE FROM orders WHERE id=$1', [orderId])
+        .then(() => res.send(`Order ${orderId} Deleted`))
+        .catch((e) => console.error(e));
+    })
+    .catch(error => {
+        console.log(error);
+        res.status(500).send("something went wrong :(..")
+    });
+});
+
+app.delete("/customers/:customersId", function (req,res) {
+    let customerId = req.params.customerId;
+
+    pool
+    .query("SELECT * FROM orders WHERE customer_id=$1", [customerId])
+    .then((result) => {
+        if(result.rows.length <= 0) {
+            pool
+            .query('DELETE FROM customers WHERE id=$1', [customerId])
+            .then(result => res.status(201).send(`Customer ${customerId} was Deleted !`))
+            .catch(error => {
+                console.log(error)
+                res.status(500).send("error my friend");
+            })
+            
+        } else {
+            return res.status(400).send("The Customers has Orders, can not be deleted!");
+        }
+    });
+});
 
 
+
+
+
+
+app.get("/customers/:customerId/orders", function (req, res) {
+    const customerId = req.params.customerId;
+    const query = `SELECT 
+    customers.name,
+    orders.order_reference,
+    orders.order_date,
+    products.product_name,
+    products.unit_price,
+    suppliers.supplier_name,
+    suppliers.country,
+    order_items.quantity
+    FROM customers
+    INNER JOIN orders ON customer_id = customers.id
+    INNER JOIN order_items ON order_id = orders.id
+    INNER JOIN products ON products.id = order_items.product_id
+    INNER JOIN suppliers ON suppliers.id = products.supplier_id
+    WHERE customers.id = $1`;
+
+    pool
+        .query(query, [customerId])
+        .then(result => res.json(result.rows))
+        .catch((e) => console.error(e));
+});
 
 
 
